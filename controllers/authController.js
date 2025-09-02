@@ -11,6 +11,7 @@ exports.register = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: { name, email, password: hashedPassword },
+      select: { id: true, name: true, email: true }, // select only needed field
     });
     res.status(201).json(user);
   } catch (err) {

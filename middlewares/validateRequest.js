@@ -1,45 +1,113 @@
+const { PrismaClient } = require("../generated/prisma");
+const prisma = new PrismaClient();
 const { body, validationResult } = require("express-validator");
 
-const validateBook = [
-  // Rules for 'title'
-  body("title")
+const validateAuth = [
+  // Rules for 'name'
+  body("name")
     .notEmpty()
-    .withMessage("Title is required")
+    .withMessage("Nama tidak boleh kosong")
     .isLength({ min: 3 })
-    .withMessage("Title must be at least 3 characters long"),
+    .withMessage("Nama harus minimal 3 karakter"),
 
-  // Rules for 'author'
-  body("author")
+  // Rules for 'email'
+  body("email")
     .notEmpty()
-    .withMessage("Author is required")
-    .isLength({ min: 3 })
-    .withMessage("Author must be at least 3 characters long"),
+    .withMessage("Email tidak boleh kosong")
+    .isEmail()
+    .withMessage("Email tidak valid")
+    .custom(async (value) => {
+      const existingUser = await prisma.user.findUnique({
+        where: { email: value },
+      });
+      if (existingUser) {
+        throw new Error("Email sudah terdaftar");
+      }
+      return true;
+    }),
 
-  body("isbn")
+  // Rules for 'password' (tanpa hashing)
+  body("password")
     .notEmpty()
-    .withMessage("ISBN is required")
-    .isLength({ min: 10, max: 13 })
-    .withMessage("ISBN must be between 10 and 13 characters long"),
+    .withMessage("Password tidak boleh kosong")
+    .isLength({ min: 8 })
+    .withMessage("Password harus minimal 8 karakter"),
 
-  body("published_year")
-    .notEmpty()
-    .withMessage("Published year is required")
-    .isNumeric()
-    .withMessage("Published year must be a number")
-    .isLength({ min: 4, max: 4 })
-    .withMessage("Published year must be 4 digits long"),
-
-  // Middleware to handle validation results
+  // Middleware menangani hasil validasi
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      // Create a structured error object
+      // Membuat objek kesalahan terstruktur
       const errorResponse = errors.array().map((err) => ({
         field: err.path, // Use err.path to get the field name
         message: err.msg,
       }));
 
-      // Send the structured error response
+      // Mengirim respons kesalahan terstruktur
+      return res.status(400).json({ errors: errorResponse });
+    }
+    next();
+  },
+];
+
+const validateBook = [
+  // Aturan untuk 'title'
+  body("title")
+    .optional() // ✅ Jadikan opsional
+    .notEmpty()
+    .withMessage("Title tidak boleh kosong")
+    .isLength({ min: 3 })
+    .withMessage("Title harus minimal 3 karakter"),
+
+  // Aturan untuk 'author'
+  body("author")
+    .optional() // ✅ Jadikan opsional
+    .notEmpty()
+    .withMessage("Author tidak boleh kosong")
+    .isLength({ min: 3 })
+    .withMessage("Author harus minimal 3 karakter"),
+
+  // Aturan untuk 'isbn'
+  body("isbn")
+    .optional() // ✅ Jadikan opsional
+    .notEmpty()
+    .withMessage("ISBN tidak boleh kosong")
+    .isLength({ min: 3, max: 13 })
+    .withMessage("ISBN harus antara 3 dan 13 karakter")
+    .custom(async (value, { req }) => {
+      const bookId = req.params.bookId;
+      const existingBook = await prisma.book.findFirst({
+        where: {
+          isbn: value,
+          id: {
+            not: bookId,
+          },
+        },
+      });
+      if (existingBook) {
+        throw new Error("ISBN sudah tersedia");
+      }
+      return true;
+    }),
+
+  // Aturan untuk 'published_year'
+  body("published_year")
+    .optional() // ✅ Jadikan opsional
+    .notEmpty()
+    .withMessage("Published year tidak boleh kosong")
+    .isNumeric()
+    .withMessage("Published year harus berupa angka")
+    .isLength({ min: 4, max: 4 })
+    .withMessage("Published year harus 4 digit"),
+
+  // Middleware penanganan hasil validasi
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      const errorResponse = errors.array().map((err) => ({
+        field: err.path,
+        message: err.msg,
+      }));
       return res.status(400).json({ errors: errorResponse });
     }
     next();
@@ -49,40 +117,58 @@ const validateBook = [
 const validateUser = [
   // Rules for 'name'
   body("name")
+    .optional()
     .notEmpty()
-    .withMessage("Name is required")
+    .withMessage("Nama tidak boleh kosong")
     .isLength({ min: 3 })
-    .withMessage("Name must be at least 3 characters long"),
+    .withMessage("Nama harus minimal 3 karakter"),
 
   // Rules for 'email'
   body("email")
+    .optional()
     .notEmpty()
-    .withMessage("Email is required")
+    .withMessage("Email tidak boleh kosong")
     .isEmail()
-    .withMessage("Email must be a valid email address"),
+    .withMessage("Email tidak valid")
+    .custom(async (value, { req }) => {
+      // Dapatkan ID pengguna dari URL
+      const userId = req.params.id;
 
-  // Rules for 'password'
+      // Periksa apakah ada pengguna lain dengan email yang sama
+      // Gunakan findFirst dan operator 'not' untuk mengecualikan pengguna saat ini
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email: value,
+          id: {
+            not: parseInt(userId), // ✅ Abaikan pengguna yang sedang di-update
+          },
+        },
+      });
+
+      if (existingUser) {
+        throw new Error("Email sudah terdaftar");
+      }
+      return true;
+    }),
+
+  // Rules for 'password' (tanpa hashing)
   body("password")
-    .notEmpty()
-    .withMessage("Password is required")
+    .optional() // ✅ Menjadikan password opsional
     .isLength({ min: 8 })
-    .withMessage("Password must be at least 8 characters long"),
+    .withMessage("Password harus minimal 8 karakter"),
 
-  // Middleware to handle validation results
+  // Middleware untuk menangani hasil validasi
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      // Create a structured error object
       const errorResponse = errors.array().map((err) => ({
-        field: err.path, // Use err.path to get the field name
+        field: err.path,
         message: err.msg,
       }));
-
-      // Send the structured error response
       return res.status(400).json({ errors: errorResponse });
     }
     next();
   },
 ];
 
-module.exports = { validateBook, validateUser };
+module.exports = { validateAuth, validateBook, validateUser };

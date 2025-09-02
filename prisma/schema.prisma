@@ -26,8 +26,8 @@ model Book {
   id             Int     @id @default(autoincrement())
   title          String
   author         String
-  published_year Int?    @unique
-  isbn           String?
+  published_year Int?
+  isbn           String?   @unique
   userId         Int     // foreign key
   user           User    @relation(fields: [userId], references: [id])
 }

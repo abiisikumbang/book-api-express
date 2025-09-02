@@ -17,10 +17,12 @@ exports.getAllBooks = async (req, res, next) => {
     ]);
 
     res.json({
-      total,
-      page,
-      limit,
       data: books,
+      meta: {
+        page,
+        limit,
+        total,
+      },
     });
   } catch (err) {
     next(err);
@@ -43,13 +45,7 @@ exports.getBookById = async (req, res, next) => {
 // fungsi untuk menambahkan buku baru
 exports.createBook = async (req, res, next) => {
   try {
-    const { 
-      title,
-      author, 
-      published_year, 
-      isbn
-
-    } = req.body;
+    const { title, author, published_year, isbn } = req.body;
     const userId = req.user.userId;
     const newBook = await prisma.book.create({
       data: {
@@ -60,7 +56,6 @@ exports.createBook = async (req, res, next) => {
         user: {
           connect: {
             id: userId,
-            
           },
         },
       },
@@ -75,7 +70,7 @@ exports.createBook = async (req, res, next) => {
 exports.updateBook = async (req, res, next) => {
   try {
     const { title, author, published_year, isbn } = req.body;
-    const userId = req.user.userId; 
+    const userId = req.user.userId;
     const updatedBook = await prisma.book.update({
       where: {
         id: parseInt(req.params.id),
