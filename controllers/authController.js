@@ -10,8 +10,13 @@ exports.register = async (req, res, next) => {
     const { name, email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword },
-      select: { id: true, name: true, email: true }, // select only needed field
+      data: {
+        name,
+        email,
+        role: "USER",
+        password: hashedPassword,
+      },
+      select: { id: true, name: true, email: true, role: true }, // select only needed field
     });
     res.status(201).json(user);
   } catch (err) {
@@ -36,7 +41,7 @@ exports.login = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
     // buat dan kirim token
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "1d",
     });
     res.json({ token });

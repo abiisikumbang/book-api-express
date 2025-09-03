@@ -140,7 +140,7 @@ const validateUser = [
         where: {
           email: value,
           id: {
-            not: parseInt(userId), // ✅ Abaikan pengguna yang sedang di-update
+            not: userId, // email 
           },
         },
       });
@@ -150,6 +150,12 @@ const validateUser = [
       }
       return true;
     }),
+
+  //Rules for 'role'
+  body("role")
+    .optional()
+    .isIn(["USER", "ADMIN"])
+    .withMessage("Role tidak valid"),
 
   // Rules for 'password' (tanpa hashing)
   body("password")

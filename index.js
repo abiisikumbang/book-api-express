@@ -1,6 +1,6 @@
 const express = require("express");
-const morgan = require ('morgan');
-const rateLimit = require('express-rate-limit');
+const morgan = require("morgan");
+const rateLimit = require("express-rate-limit");
 const app = express();
 const PORT = 3000;
 
@@ -21,6 +21,13 @@ const errorHandler = require("./middlewares/errorHandler");
 app.use(express.json());
 
 // Routes
+app.get("/", (req, res) => {
+  res.send(`
+    <h1>Books</h1>
+    <p><a href="/books">Books</a></p>
+    <p><a href="/users">Users</a></p>
+  `);
+});
 app.use("/books", bookRoutes);
 app.use("/users", userRoutes);
 app.use("/auth", authRoutes);
