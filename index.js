@@ -3,6 +3,7 @@ const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const app = express();
 const PORT = 3000;
+const swaggerDocs = require("./config/swagger");
 
 app.use(morgan("dev"));
 
@@ -34,6 +35,9 @@ app.use("/auth", authRoutes);
 
 // Error handler
 app.use(errorHandler);
+
+// Swagger Docs
+swaggerDocs(app);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

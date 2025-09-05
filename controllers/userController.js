@@ -4,14 +4,69 @@ const bcrypt = require("bcrypt");
 
 exports.getAllUsers = async (req, res, next) => {
   try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
+    let {
+      page = 1,
+      limit = 10,
+      search,
+      name,
+      email,
+      sort_by,
+      sortBy, 
+      sort_order,
+      order, 
+    } = req.query;
+
+    page = parseInt(page, 10);
+    limit = parseInt(limit, 10);
+    const skip = (page - 1) * limit;
+
+    const where = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search } },
+        { email: { contains: search } },
+      ];
+    }
+    if (name) {
+      where.name = { contains: name };
+    }
+    if (email) {
+      where.email = { contains: email };
+    }
+
+    // Ambil field sorting, support snake_case & camelCase
+    const sortField = sort_by || sortBy || "id"; // default: id
+    const sortDir = (sort_order || order || "asc").toLowerCase();
+
+    // Bangun orderBy dinamis
+    const orderBy = {};
+    orderBy[sortField] = sortDir === "desc" ? "desc" : "asc";
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        skip,
+        take: limit,
+        where,
+        orderBy,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    res.json({
+      data: users,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
       },
     });
-    res.json(users);
   } catch (err) {
     next(err);
   }
