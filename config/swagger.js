@@ -1,6 +1,6 @@
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
-const { patch } = require("../routes/bookRoutes");
+// const { patch } = require("../routes/bookRoutes");
 
 const options = {
   definition: {
@@ -39,7 +39,7 @@ const swaggerSpec = swaggerJsDoc(options);
 
 function swaggerDocs(app) {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-  console.log("📚 Swagger Docs tersedia di: http://localhost:3000/api-docs");
+  // console.log("📚 Swagger Docs tersedia di: http://localhost:3000/api-docs");
 }
 
 module.exports = swaggerDocs;

@@ -131,7 +131,10 @@ exports.deleteBook = async (req, res, next) => {
     const deletedBook = await prisma.book.delete({
       where: { id: parseInt(req.params.id) },
     });
-    res.json(deletedBook);
+    res.json({
+      message: "Book deleted successfully",
+      data: deletedBook,
+    });
   } catch (err) {
     if (err.code === "P2025")
       return next({ status: 404, message: "Book not found" });

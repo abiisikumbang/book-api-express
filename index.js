@@ -4,6 +4,12 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 const PORT = 3000;
 const swaggerDocs = require("./config/swagger");
+const helmet = require("helmet");
+const cors = require("cors");
+
+
+app.use(helmet());
+app.use(cors());
 
 app.use(morgan("dev"));
 
@@ -40,5 +46,5 @@ app.use(errorHandler);
 swaggerDocs(app);
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  // console.log(`Server running on port ${PORT}`);
 });

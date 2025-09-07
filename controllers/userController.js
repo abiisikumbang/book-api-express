@@ -158,7 +158,10 @@ exports.deleteUser = async (req, res, next) => {
     const deletedUser = await prisma.user.delete({
       where: { id: parseInt(id) },
     });
-    res.status(200).json(deletedUser);
+    res.status(200).json({
+      message: "User berhasil dihapus",
+      data: deletedUser,
+    });
   } catch (err) {
     next(err);
   }

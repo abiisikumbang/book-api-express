@@ -3,6 +3,9 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+const redis = require("../redisClient");
 
 exports.register = async (req, res, next) => {
   try {
@@ -17,7 +20,7 @@ exports.register = async (req, res, next) => {
       },
       select: { id: true, name: true, email: true, role: true },
     });
-    res.status(201).json(user);
+    res.status(201).json({ message: "Berhasil membuat akun", user });
   } catch (err) {
     next(err);
   }
@@ -31,63 +34,84 @@ exports.login = async (req, res, next) => {
         .status(400)
         .json({ message: "Email dan Password harus tersedia" });
     }
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ message: "Email tidak ditemukan" });
-    }
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ message: "Password tidak sesuai" });
-    } 
 
-    // buat dan kirim token
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user)
+      return res.status(401).json({ message: "Email tidak ditemukan" });
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid)
+      return res.status(401).json({ message: "Password tidak sesuai" });
+
+    // Buat token
     const accessToken = jwt.sign(
-      {
-        userId: user.id,
-        role: user.role,
-      },
+      { userId: user.id, role: user.role },
       JWT_SECRET,
       { expiresIn: "15m" }
     );
+
     const refreshToken = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_REFRESH_SECRET,
+      { userId: user.id, role: user.role },
+      JWT_REFRESH_SECRET,
       { expiresIn: "7d" }
     );
-    // simpan refresh token di DB
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { refreshToken },
-    });
+    // Simpan refresh token di Redis (hashed atau plain, sesuai kebutuhan) //jalankan diterminal untuk cek refreshToken
+    // docker exec -it redis redis-cli
+    await redis.set(
+      `auth:refresh:user:${user.id}`, //auth:refresh:user: adalah prefix untuk key di Redis
+      refreshToken,
+      "EX", // Set expiry time
+      60 * 60 * 24 * 7 // 7 days in seconds
+    );
+
     res.json({ accessToken, refreshToken });
   } catch (err) {
     next(err);
   }
 };
 
-// buat controller refresh token
 exports.refreshToken = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     if (!refreshToken)
       return res.status(401).json({ message: "Refresh token diperlukan" });
 
-    const user = await prisma.user.findFirst({ where: { refreshToken } });
-    if (!user)
+    let payload;
+    try {
+      payload = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    } catch (err) {
+      return res.status(403).json({ message: "Refresh token tidak valid" });
+    }
+
+    const storedToken = await redis.get(`auth:refresh:user:${payload.userId}`);
+    if (!storedToken)
+      return res.status(403).json({ message: "Refresh token tidak ditemukan" });
+
+    if (storedToken !== refreshToken)
       return res.status(403).json({ message: "Refresh token tidak valid" });
 
-    jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
-      if (err)
-        return res.status(403).json({ message: "Refresh token tidak valid" });
+    // Generate token baru
+    const newAccessToken = jwt.sign(
+      { userId: payload.userId, role: payload.role },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
 
-      const newAccessToken = jwt.sign(
-        { userId: user.id, role: user.role },
-        JWT_SECRET,
-        { expiresIn: "15m" }
-      );
+    const newRefreshToken = jwt.sign(
+      { userId: payload.userId, role: payload.role },
+      JWT_REFRESH_SECRET,
+      { expiresIn: "7d" }
+    );
 
-      res.json({ newAccessToken: newAccessToken });
-    });
+    // Ganti token di Redis
+    await redis.set(
+      `auth:refresh:user:${payload.userId}`,
+      newRefreshToken,
+      "EX",
+      60 * 60 * 24 * 7
+    );
+
+    res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
   } catch (err) {
     next(err);
   }
@@ -96,10 +120,7 @@ exports.refreshToken = async (req, res, next) => {
 exports.logout = async (req, res, next) => {
   try {
     const { userId } = req.user;
-    await prisma.user.update({
-      where: { id: userId },
-      data: { refreshToken: null },
-    });
+    await redis.del(`auth:refresh:user:${userId}`);
     res.json({ message: "Logout berhasil" });
   } catch (err) {
     next(err);
