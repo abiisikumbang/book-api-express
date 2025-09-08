@@ -1,9 +1,11 @@
 const { PrismaClient } = require("../generated/prisma");
 const prisma = new PrismaClient();
+const logger = require("./config/logger");
 
 // fungsi untuk mendapatkan semua buku dengan pagination dan filtering
 exports.getAllBooks = async (req, res, next) => {
   try {
+    logger.info("Mengambil semua buku dengan pagination dan filtering");
     let {
       page = 1,
       limit = 10,
@@ -68,6 +70,7 @@ exports.getAllBooks = async (req, res, next) => {
 // fungsi untuk mendapatkan buku berdasarkan id
 exports.getBookById = async (req, res, next) => {
   try {
+    logger.info("Mengambil buku berdasarkan id");
     const book = await prisma.book.findUnique({
       where: { id: parseInt(req.params.id) },
     });
@@ -81,6 +84,7 @@ exports.getBookById = async (req, res, next) => {
 // fungsi untuk menambahkan buku baru
 exports.createBook = async (req, res, next) => {
   try {
+    logger.info("Menambahkan buku baru");
     const { title, author, published_year, isbn } = req.body;
     const userId = req.user.userId;
     const newBook = await prisma.book.create({
@@ -105,6 +109,7 @@ exports.createBook = async (req, res, next) => {
 // fungsi untuk mengupdate buku berdasarkan id
 exports.updateBook = async (req, res, next) => {
   try {
+    logger.info("Mengupdate buku berdasarkan id");
     const { title, author, published_year, isbn } = req.body;
     const userId = req.user.userId;
     const updatedBook = await prisma.book.update({
@@ -128,6 +133,7 @@ exports.updateBook = async (req, res, next) => {
 // fungsi untuk menghapus buku berdasarkan id
 exports.deleteBook = async (req, res, next) => {
   try {
+    logger.info("Menghapus buku berdasarkan id");
     const deletedBook = await prisma.book.delete({
       where: { id: parseInt(req.params.id) },
     });
@@ -141,3 +147,4 @@ exports.deleteBook = async (req, res, next) => {
     next(err);
   }
 };
+

@@ -1,9 +1,12 @@
 const { PrismaClient } = require("../generated/prisma");
 const prisma = new PrismaClient();
 const bcrypt = require("bcrypt");
+const logger = require("./config/logger");
 
 exports.getAllUsers = async (req, res, next) => {
   try {
+    logger.info("Mengambil semua user dengan pagination, filter, dan sorting");
+
     let {
       page = 1,
       limit = 10,
@@ -68,12 +71,15 @@ exports.getAllUsers = async (req, res, next) => {
       },
     });
   } catch (err) {
+    logger.error(err);
     next(err);
   }
 };
 
 exports.getUserById = async (req, res, next) => {
   try {
+    logger.info(`Mengambil user dengan id ${req.params.id}`);
+
     const user = await prisma.user.findUnique({
       where: { id: parseInt(req.params.id) },
       select: {
@@ -82,15 +88,18 @@ exports.getUserById = async (req, res, next) => {
         email: true,
       },
     });
-    if (!user) return next({ status: 404, message: "User not found" });
+    if (!user) return next({ status: 404, message: "User tidak ditemukan" });
     res.json(user);
   } catch (err) {
+    logger.error(err);
     next(err);
   }
 };
 
 exports.createUser = async (req, res, next) => {
   try {
+    logger.info("Membuat user baru");
+
     const { name, email, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -104,12 +113,15 @@ exports.createUser = async (req, res, next) => {
     const { password: _, ...userWithoutPassword } = user;
     res.status(201).json(userWithoutPassword);
   } catch (err) {
+    logger.error(err);
     next(err);
   }
 };
 
 exports.updateUser = async (req, res, next) => {
   try {
+    logger.info(`Mengupdate user dengan id ${req.params.id}`);
+
     const { id } = req.params;
     const { name, email, role, password } = req.body;
 
@@ -132,7 +144,7 @@ exports.updateUser = async (req, res, next) => {
 
     // Periksa apakah ada data untuk di-update
     if (Object.keys(dataToUpdate).length === 0) {
-      return res.status(400).json({ message: "No data provided to update." });
+      return res.status(400).json({ message: "Data untuk di-update tidak ada" });
     }
 
     const updatedUser = await prisma.user.update({
@@ -148,12 +160,15 @@ exports.updateUser = async (req, res, next) => {
 
     res.status(200).json(updatedUser);
   } catch (err) {
+    logger.error(err);
     next(err);
   }
 };
 
 exports.deleteUser = async (req, res, next) => {
   try {
+    logger.info(`Menghapus user dengan id ${req.params.id}`);
+
     const { id } = req.params;
     const deletedUser = await prisma.user.delete({
       where: { id: parseInt(id) },
@@ -163,6 +178,8 @@ exports.deleteUser = async (req, res, next) => {
       data: deletedUser,
     });
   } catch (err) {
+    logger.error(err);
     next(err);
   }
 };
+
